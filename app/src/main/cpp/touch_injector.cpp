@@ -17,6 +17,19 @@
 
 namespace panda {
 
+#define BITS_PER_BYTE 8
+#define NBITS(x) ((((x) - 1) / BITS_PER_BYTE) + 1)
+
+// Helper tạo cấu hình input_event an toàn
+static inline struct input_event make_event(__u16 type, __u16 code, __s32 value) {
+    struct input_event ev{};
+    memset(&ev, 0, sizeof(ev));
+    ev.type = type;
+    ev.code = code;
+    ev.value = value;
+    return ev;
+}
+
 // Helper kiểm tra bitmask trong mảng byte
 static inline bool test_bit(int bit, const uint8_t* array) {
     return (array[bit / 8] & (1 << (bit % 8))) != 0;
@@ -335,29 +348,29 @@ bool TouchInjector::injectTouchDown(int slot, float screen_x, float screen_y) {
     int count = 0;
 
     // 1. Chọn Slot
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_SLOT, .value = slot };
+    evs[count++] = make_event(EV_ABS, ABS_MT_SLOT, slot);
     // 2. Gán Tracking ID
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_TRACKING_ID, .value = tracking_id };
+    evs[count++] = make_event(EV_ABS, ABS_MT_TRACKING_ID, tracking_id);
     // 3. Tọa độ X và Y
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_POSITION_X, .value = hw_x };
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_POSITION_Y, .value = hw_y };
+    evs[count++] = make_event(EV_ABS, ABS_MT_POSITION_X, hw_x);
+    evs[count++] = make_event(EV_ABS, ABS_MT_POSITION_Y, hw_y);
 
     // 4. Các thông số phụ trợ nếu driver yêu cầu (Pressure, Touch Major)
     if (bounds_.has_pressure) {
-        evs[count++] = { .type = EV_ABS, .code = ABS_MT_PRESSURE, .value = 50 };
+        evs[count++] = make_event(EV_ABS, ABS_MT_PRESSURE, 50);
     }
     if (bounds_.has_touch_major) {
-        evs[count++] = { .type = EV_ABS, .code = ABS_MT_TOUCH_MAJOR, .value = 8 };
+        evs[count++] = make_event(EV_ABS, ABS_MT_TOUCH_MAJOR, 8);
     }
 
     // 5. BTN_TOUCH: Nếu đây là ngón tay ảo đầu tiên chạm vào màn hình
     if (active_virtual_touches_ == 0 && bounds_.has_btn_touch) {
-        evs[count++] = { .type = EV_KEY, .code = BTN_TOUCH, .value = 1 };
+        evs[count++] = make_event(EV_KEY, BTN_TOUCH, 1);
     }
     active_virtual_touches_++;
 
     // 6. SYN_REPORT: Commit toàn bộ gói tin sự kiện xuống Kernel
-    evs[count++] = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 };
+    evs[count++] = make_event(EV_SYN, SYN_REPORT, 0);
 
     return writeEvents(evs, count);
 }
@@ -395,12 +408,12 @@ bool TouchInjector::injectTouchMove(int slot, float screen_x, float screen_y) {
     int count = 0;
 
     // 1. Chọn Slot
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_SLOT, .value = slot };
+    evs[count++] = make_event(EV_ABS, ABS_MT_SLOT, slot);
     // 2. Cập nhật tọa độ X, Y
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_POSITION_X, .value = hw_x };
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_POSITION_Y, .value = hw_y };
+    evs[count++] = make_event(EV_ABS, ABS_MT_POSITION_X, hw_x);
+    evs[count++] = make_event(EV_ABS, ABS_MT_POSITION_Y, hw_y);
     // 3. SYN_REPORT
-    evs[count++] = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 };
+    evs[count++] = make_event(EV_SYN, SYN_REPORT, 0);
 
     return writeEvents(evs, count);
 }
@@ -427,9 +440,9 @@ bool TouchInjector::injectTouchUp(int slot) {
     int count = 0;
 
     // 1. Chọn Slot
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_SLOT, .value = slot };
+    evs[count++] = make_event(EV_ABS, ABS_MT_SLOT, slot);
     // 2. Giải phóng slot: Đặt ABS_MT_TRACKING_ID về -1
-    evs[count++] = { .type = EV_ABS, .code = ABS_MT_TRACKING_ID, .value = -1 };
+    evs[count++] = make_event(EV_ABS, ABS_MT_TRACKING_ID, -1);
 
     if (active_virtual_touches_ > 0) {
         active_virtual_touches_--;
@@ -437,11 +450,11 @@ bool TouchInjector::injectTouchUp(int slot) {
 
     // 3. BTN_TOUCH: Nếu không còn ngón tay ảo nào chạm vào màn hình
     if (active_virtual_touches_ == 0 && bounds_.has_btn_touch) {
-        evs[count++] = { .type = EV_KEY, .code = BTN_TOUCH, .value = 0 };
+        evs[count++] = make_event(EV_KEY, BTN_TOUCH, 0);
     }
 
     // 4. SYN_REPORT
-    evs[count++] = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 };
+    evs[count++] = make_event(EV_SYN, SYN_REPORT, 0);
 
     return writeEvents(evs, count);
 }
