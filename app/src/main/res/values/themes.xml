@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.PandaTouchRoot" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#00E676</item>
+        <item name="android:statusBarColor">#121212</item>
+    </style>
+</resources>
